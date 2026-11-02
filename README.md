@@ -2,13 +2,29 @@
 
 **TextSnap** is a modern, responsive, 100% client-side Optical Character Recognition (OCR) web application built with **React**, **TypeScript**, **Tailwind CSS**, and **Tesseract.js**.
 
-Extract English text from receipts, documents, book pages, screenshots, and invoices directly in your web browser — **with zero server uploads, complete privacy, batch queue processing, native screenshot clipboard pasting, and no accounts or API keys required**.
+Extract English text from receipts, documents, book pages, screenshots, and invoices directly in your web browser — **with zero server uploads, complete privacy, interactive image editing, batch queue processing, native screenshot clipboard pasting, and no accounts or API keys required**.
 
 ![TextSnap Icon](public/favicon.svg)
 
 ---
 
-## 🚀 What's New in V1.1: Batch OCR & Clipboard Image Pasting
+## 🎨 What's New in V1.2: Built-in Image Editor & Non-Destructive OCR Pipeline
+
+- ✂️ **Interactive Cropping**: Free-form adjustable selection overlay with resize and repositioning handles powered by `react-easy-crop`. Perfect for isolating paragraphs, invoice tables, receipts, or specific text zones.
+- 🔄 **90° Stepped Rotation**: Rotate Left (90° CCW) and Rotate Right (90° CW) with immediate visual feedback, orientation tracking, and coordinate mapping.
+- ☀️ **Real-Time Brightness & Contrast**: Fine-tune contrast and brightness from 0% to 200% (default 100% neutral) to clarify faint handwriting, dark receipts, or washed-out scans.
+- 🖤 **Grayscale (B&W) Toggle**: One-click luminance conversion (`0.299*R + 0.587*G + 0.114*B`) for sharp character edge contrast.
+- 🛡️ **Non-Destructive Editing Guarantee**:
+  - The original uploaded image is **never** mutated or re-compressed.
+  - Transformations are always computed on-demand directly from the pristine source.
+  - 60fps buttery-smooth real-time slider adjustments using CSS filters, rendering to high-res Canvas only upon applying.
+  - Reopening the editor allows modifying existing settings or resetting back to original.
+  - Each item in a batch queue maintains its own isolated editing configuration without affecting others.
+- ⚡ **"Apply & Extract Text" Workflow**: One-click export to HTML Canvas and instant execution with Tesseract.js.
+
+---
+
+## 🚀 What Was Introduced in V1.1: Batch OCR & Clipboard Image Pasting
 
 - 📑 **Multiple Image Uploads & Batch Queue**: Select, drag & drop, or paste multiple images at once. Process them sequentially with a single shared Tesseract.js worker.
 - 📋 **Native Clipboard Image Pasting**:
@@ -20,23 +36,17 @@ Extract English text from receipts, documents, book pages, screenshots, and invo
   - One-click retry for failed images.
   - Add or remove images dynamically while queue exists.
 - 📑 **Combine All Results**:
-  - Seamlessly compiles all completed extractions in their original queue order into a single structured document with clear `--- Document.png ---` separators.
+  - Compiles all completed extractions in their original queue order into a single structured document with clear `--- Document.png ---` separators.
   - Preserves recognized line breaks and allows full manual editing without accidental overwrite.
   - One-click **Copy Combined** and **Download Combined TXT**.
 
 ---
 
-## ✨ Features
+## ✨ Full Feature Overview
 
 - 🔒 **100% Client-Side Privacy**: All OCR processing executes entirely inside your browser using Tesseract.js (WebAssembly). Uploaded images are **never** transmitted to any server.
 - ⚡ **Drag & Drop & File Picker**: Support for **JPG**, **JPEG**, **PNG**, and **WebP** formats with file validation up to **8 MB** per image.
 - 🖼️ **Safe Image Previews & Cleanup**: Uses standard Browser File and Object URL APIs with automatic memory cleanup to prevent memory leaks.
-- 🛠️ **Live Image Preprocessing**:
-  - Optional grayscale conversion
-  - Dynamic contrast enhancement slider (-50 to +100)
-  - High-contrast black & white binarization
-  - Color inversion (ideal for light text on dark backgrounds)
-  - Instant before/after comparison preview
 - 📊 **Real-time Sequential Batch Progress**: Live progress percentage, current document index (e.g., "Processing 2 of 5"), and status events straight from the WebAssembly worker.
 - 📝 **Individual Results & Editor**:
   - In-place editable textarea preserving recognized line breaks
@@ -53,6 +63,23 @@ Extract English text from receipts, documents, book pages, screenshots, and invo
   - *Note: Only extracted text and metadata are stored—images are never stored in localStorage.*
 - 🌓 **Dark Mode**: Fully styled modern light and dark themes with system preference detection and smooth transitions.
 - 📱 **Fully Responsive**: Tailored layout for mobile, tablet, and widescreen desktop experiences.
+
+---
+
+## 🛠️ How the Image Editor Works
+
+1. **Open Editor**: Click the **Crop / Edit** icon on any queue card or the **"Edit Image"** button in the preview toolbar.
+2. **Crop Region**: Drag the corners of the crop box to frame only the text you want recognized.
+3. **Rotate**: Click **Left 90°** or **Right 90°** if your document or screenshot was taken in portrait/landscape.
+4. **Tune Sliders**:
+   - **Brightness**: 0% (black) to 200% (bright)
+   - **Contrast**: 0% (flat) to 200% (high contrast around midpoint 128)
+   - **Grayscale**: Toggle B&W mode for crisper text edges
+5. **Apply Changes**:
+   - **"Apply Changes"**: Saves the transformed image in the queue without running OCR yet (ideal for editing multiple images before batch processing).
+   - **"Apply & Extract Text"**: Saves the transformed image and immediately runs OCR recognition.
+   - **"Reset All"**: Restores all adjustments back to default.
+   - **"Cancel"**: Closes editor leaving the image untouched.
 
 ---
 
@@ -79,35 +106,37 @@ Extract English text from receipts, documents, book pages, screenshots, and invo
 ```
 textsnap/
 ├── public/
-│   └── favicon.svg              # Application SVG icon
+│   └── favicon.svg                 # Application SVG icon
 ├── src/
 │   ├── components/
-│   │   ├── Navbar.tsx           # Brand header, links, history counter, and theme toggle
-│   │   ├── BatchUpload.tsx      # Multi-image dropzone, file picker, and paste controls
-│   │   ├── QueueItemCard.tsx    # Queue item thumbnail, status badge, progress, and remove
-│   │   ├── BatchProgress.tsx    # Real-time sequential batch progress indicator
-│   │   ├── IndividualResult.tsx # Editable text result, metrics, copy, download, and retry
-│   │   ├── CombinedResults.tsx  # Compiled document output with headers and exports
-│   │   ├── Toast.tsx            # Non-intrusive notifications for clipboard actions
-│   │   ├── History.tsx          # Local history modal drawer with restore & delete
-│   │   └── ThemeToggle.tsx      # Light/dark/system mode switcher
+│   │   ├── Navbar.tsx              # Brand header, links, history counter, and theme toggle
+│   │   ├── BatchUpload.tsx         # Multi-image dropzone, file picker, and paste controls
+│   │   ├── ImageEditorModal.tsx    # Interactive crop, rotate, brightness, contrast & grayscale modal
+│   │   ├── QueueItemCard.tsx       # Queue item thumbnail, edit button, status badge, and remove
+│   │   ├── BatchProgress.tsx       # Real-time sequential batch progress indicator
+│   │   ├── IndividualResult.tsx    # Editable text result, metrics, re-edit, copy, download, and retry
+│   │   ├── CombinedResults.tsx     # Compiled document output with headers and exports
+│   │   ├── Toast.tsx               # Non-intrusive notifications for clipboard and editor actions
+│   │   ├── History.tsx             # Local history modal drawer with restore & delete
+│   │   └── ThemeToggle.tsx         # Light/dark/system mode switcher
 │   ├── hooks/
-│   │   ├── useImageQueue.ts     # Multi-image queue state, validation, and URL cleanup
-│   │   ├── useBatchOCR.ts       # Sequential Tesseract.js processing engine
-│   │   ├── useClipboardImage.ts # Document paste & navigator.clipboard integration
-│   │   ├── useOCR.ts            # Single-image OCR worker wrapper
-│   │   └── useHistory.ts        # LocalStorage state management
+│   │   ├── useImageQueue.ts        # Non-destructive queue state, validation, and URL cleanup
+│   │   ├── useBatchOCR.ts          # Sequential Tesseract.js processing engine
+│   │   ├── useClipboardImage.ts    # Document paste & navigator.clipboard integration
+│   │   ├── useOCR.ts               # Single-image OCR worker wrapper
+│   │   └── useHistory.ts           # LocalStorage state management
 │   ├── services/
-│   │   ├── ocrService.ts        # Tesseract.js worker initialization and text recognition
-│   │   ├── clipboardService.ts  # Clipboard DataTransfer extraction and target validation
-│   │   ├── imageService.ts      # Canvas-based image enhancement and text stats
-│   │   └── storageService.ts    # LocalStorage history and theme persistence
+│   │   ├── ocrService.ts           # Tesseract.js worker initialization and text recognition
+│   │   ├── imageProcessingService.ts # Canvas rotation, cropping, and pixel adjustments pipeline
+│   │   ├── clipboardService.ts     # Clipboard DataTransfer extraction and target validation
+│   │   ├── imageService.ts         # Formatting utilities and text metrics
+│   │   └── storageService.ts       # LocalStorage history and theme persistence
 │   ├── types/
-│   │   └── index.ts             # TypeScript interfaces & types
-│   ├── test/                    # Vitest test suites (40 tests passing)
-│   ├── App.tsx                  # Main application orchestration & layout
-│   ├── index.css                # Tailwind base & custom animations
-│   └── main.tsx                 # React DOM entrypoint
+│   │   └── index.ts                # TypeScript interfaces & types
+│   ├── test/                       # Vitest test suites (50 tests passing)
+│   ├── App.tsx                     # Main application orchestration & layout
+│   ├── index.css                   # Tailwind base & custom animations
+│   └── main.tsx                    # React DOM entrypoint
 ├── index.html
 ├── package.json
 ├── tailwind.config.js
@@ -115,41 +144,12 @@ textsnap/
 └── vite.config.ts
 ```
 
-### Batch OCR Lifecycle
-
-```
-Add Images (Drop, File Picker, or Ctrl+V / Cmd+V)
-       │
-       ▼
-useImageQueue: Validate MIME type (JPG/PNG/WebP) & File Size (<8MB)
-       │
-       ▼
-Image Queue: [Item 1: Queued, Item 2: Queued, Item 3: Queued]
-       │
-       ▼
-User clicks "Process All" (or "Extract This Image")
-       │
-       ▼
-useBatchOCR: Loops through queue items sequentially
-       ├── Sets Item 1: status = 'processing'
-       ├── Calls ocrService.recognize(item.file, onProgress)
-       │    └── Reuses single Tesseract.js WebAssembly worker
-       ├── On Success: status = 'completed', extractedText, confidence
-       │    └── Automatically saves to History
-       └── On Error: status = 'failed' (continues to Item 2 without crashing)
-       │
-       ▼
-Results Interface:
-       ├── Individual Result: View, edit, copy, download, or retry single image
-       └── Combined Results: Auto-compiles all completed extractions in queue order
-```
-
 ---
 
 ## 🔒 Privacy & Security
 
 1. **No Backend**: TextSnap has no backend server, no database, no telemetry, and no tracking scripts.
-2. **Zero Image Transmission**: Uploaded and pasted images are loaded into browser memory as local Blob object URLs (`blob:http...`). At no point is image data transmitted across the network.
+2. **Zero Image Transmission**: Uploaded, pasted, and edited images are processed in browser memory as local Blob object URLs (`blob:http...`). At no point is image data transmitted across the network.
 3. **CDN Resource Loading**: On the very first extraction, Tesseract.js fetches its WebAssembly engine (`tesseract-core.wasm`) and the English language model (`eng.traineddata.gz`) from official CDNs. Once downloaded, the browser caches these files locally for instant offline runs.
 
 ---

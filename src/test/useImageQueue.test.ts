@@ -122,4 +122,111 @@ describe('useImageQueue', () => {
     expect(updated.linesCount).toBe(2);
     expect(updated.wordCount).toBe(8);
   });
+
+  describe('Non-destructive editing', () => {
+    it('applies edited transformations without mutating the original file', () => {
+      const { result } = renderHook(() => useImageQueue());
+
+      const originalFile = new File(['original data'], 'photo.png', { type: 'image/png' });
+
+      act(() => {
+        result.current.addFiles([originalFile]);
+      });
+
+      const item = result.current.queue[0];
+      expect(item.originalFile).toBe(originalFile);
+      expect(item.isEdited).toBe(false);
+
+      const editedFile = new File(['cropped & rotated data'], 'photo.png', { type: 'image/png' });
+      const editedConfig = {
+        rotation: 90,
+        brightness: 120,
+        contrast: 110,
+        grayscale: true,
+        cropAreaPixels: { x: 10, y: 10, width: 200, height: 150 },
+        crop: { x: 0, y: 0 },
+        zoom: 1,
+      };
+
+      act(() => {
+        result.current.updateEditedItem(item.id, editedFile, 'blob:edited-url', editedConfig);
+      });
+
+      const updatedItem = result.current.queue[0];
+      expect(updatedItem.file).toBe(editedFile);
+      expect(updatedItem.originalFile).toBe(originalFile); // Original stays pristine!
+      expect(updatedItem.isEdited).toBe(true);
+      expect(updatedItem.editorConfig?.rotation).toBe(90);
+      expect(updatedItem.editorConfig?.grayscale).toBe(true);
+    });
+
+    it('isolates edits between different items in the queue', () => {
+      const { result } = renderHook(() => useImageQueue());
+
+      const file1 = new File(['1'], 'doc1.png', { type: 'image/png' });
+      const file2 = new File(['2'], 'doc2.png', { type: 'image/png' });
+
+      act(() => {
+        result.current.addFiles([file1, file2]);
+      });
+
+      const item1Id = result.current.queue[0].id;
+      const editedFile = new File(['edited1'], 'doc1.png', { type: 'image/png' });
+
+      act(() => {
+        result.current.updateEditedItem(item1Id, editedFile, 'blob:edited1', {
+          rotation: 180,
+          brightness: 150,
+          contrast: 100,
+          grayscale: false,
+          cropAreaPixels: null,
+          crop: { x: 0, y: 0 },
+          zoom: 1,
+        });
+      });
+
+      // Item 1 is edited
+      expect(result.current.queue[0].isEdited).toBe(true);
+      expect(result.current.queue[0].editorConfig?.rotation).toBe(180);
+
+      // Item 2 is completely unaffected
+      expect(result.current.queue[1].isEdited).toBe(false);
+      expect(result.current.queue[1].editorConfig?.rotation).toBe(0);
+    });
+
+    it('resets an edited item back to its original file and defaults', () => {
+      const { result } = renderHook(() => useImageQueue());
+
+      const originalFile = new File(['original'], 'doc.png', { type: 'image/png' });
+
+      act(() => {
+        result.current.addFiles([originalFile]);
+      });
+
+      const itemId = result.current.queue[0].id;
+
+      act(() => {
+        result.current.updateEditedItem(itemId, new File(['edited'], 'doc.png', { type: 'image/png' }), 'blob:edited', {
+          rotation: 270,
+          brightness: 80,
+          contrast: 130,
+          grayscale: true,
+          cropAreaPixels: null,
+          crop: { x: 0, y: 0 },
+          zoom: 1,
+        });
+      });
+
+      expect(result.current.queue[0].isEdited).toBe(true);
+
+      act(() => {
+        result.current.resetItemToOriginal(itemId);
+      });
+
+      const restoredItem = result.current.queue[0];
+      expect(restoredItem.file).toBe(originalFile);
+      expect(restoredItem.isEdited).toBe(false);
+      expect(restoredItem.editorConfig?.rotation).toBe(0);
+    });
+  });
 });

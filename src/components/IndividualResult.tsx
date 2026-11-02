@@ -11,12 +11,14 @@ import {
   AlignLeft,
   ChevronLeft,
   ChevronRight,
+  Crop,
 } from 'lucide-react';
 
 interface IndividualResultProps {
   item: QueueItem;
   onTextChange: (newText: string) => void;
   onRetry: () => void;
+  onEdit?: () => void;
   onSelectPrevious?: () => void;
   onSelectNext?: () => void;
   hasPrevious?: boolean;
@@ -30,6 +32,7 @@ export const IndividualResult: React.FC<IndividualResultProps> = ({
   item,
   onTextChange,
   onRetry,
+  onEdit,
   onSelectPrevious,
   onSelectNext,
   hasPrevious = false,
@@ -193,6 +196,19 @@ export const IndividualResult: React.FC<IndividualResultProps> = ({
             <Download className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             <span>Download .txt</span>
           </button>
+
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              disabled={isProcessing}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-40"
+              title="Edit image (crop, rotate, adjust filters)"
+            >
+              <Crop className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+              <span>Edit Image</span>
+            </button>
+          )}
 
           <button
             type="button"

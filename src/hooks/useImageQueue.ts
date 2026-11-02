@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { QueueItem } from '../types';
+import { QueueItem, ImageEditorConfig, DEFAULT_EDITOR_CONFIG } from '../types';
 import { calculateTextStats } from '../services/imageService';
 
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
@@ -27,6 +27,13 @@ export interface UseImageQueueReturn {
   clearQueue: () => void;
   updateItem: (id: string, updates: Partial<QueueItem>) => void;
   updateItemText: (id: string, newText: string) => void;
+  updateEditedItem: (
+    id: string,
+    editedFile: File,
+    editedPreviewUrl: string,
+    config: ImageEditorConfig
+  ) => void;
+  resetItemToOriginal: (id: string) => void;
   completedItems: QueueItem[];
   failedItems: QueueItem[];
   queuedItems: QueueItem[];
@@ -37,7 +44,7 @@ export function useImageQueue(): UseImageQueueReturn {
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
   // Track all active object URLs for safe revocation
-  const urlsRef = useRef<Map<string, string>>(new Map());
+  const urlsRef = useRef<Set<string>>(new Set());
 
   // Clean up all object URLs on unmount
   useEffect(() => {
@@ -73,12 +80,14 @@ export function useImageQueue(): UseImageQueueReturn {
 
       const id = createUniqueId();
       const previewUrl = URL.createObjectURL(file);
-      urlsRef.current.set(id, previewUrl);
+      urlsRef.current.add(previewUrl);
 
       validItems.push({
         id,
+        originalFile: file,
         file,
         previewUrl,
+        originalPreviewUrl: previewUrl,
         filename: file.name,
         fileSize: file.size,
         status: 'queued',
@@ -90,16 +99,13 @@ export function useImageQueue(): UseImageQueueReturn {
         linesCount: 0,
         error: null,
         timestamp: Date.now(),
+        editorConfig: DEFAULT_EDITOR_CONFIG,
+        isEdited: false,
       });
     }
 
     if (validItems.length > 0) {
-      setQueue((prev) => {
-        const next = [...prev, ...validItems];
-        return next;
-      });
-
-      // If no active item, select the first newly added item
+      setQueue((prev) => [...prev, ...validItems]);
       setActiveItemId((prev) => (prev ? prev : validItems[0].id));
     }
 
@@ -111,28 +117,33 @@ export function useImageQueue(): UseImageQueueReturn {
   }, []);
 
   const removeQueueItem = useCallback((id: string) => {
-    // Revoke object URL
-    const url = urlsRef.current.get(id);
-    if (url) {
-      try {
-        URL.revokeObjectURL(url);
-      } catch {
-        // ignore
-      }
-      urlsRef.current.delete(id);
-    }
-
     setQueue((prev) => {
-      const next = prev.filter((item) => item.id !== id);
-      return next;
+      const itemToRemove = prev.find((i) => i.id === id);
+      if (itemToRemove) {
+        if (itemToRemove.previewUrl) {
+          try {
+            URL.revokeObjectURL(itemToRemove.previewUrl);
+            urlsRef.current.delete(itemToRemove.previewUrl);
+          } catch {
+            // ignore
+          }
+        }
+        if (
+          itemToRemove.originalPreviewUrl &&
+          itemToRemove.originalPreviewUrl !== itemToRemove.previewUrl
+        ) {
+          try {
+            URL.revokeObjectURL(itemToRemove.originalPreviewUrl);
+            urlsRef.current.delete(itemToRemove.originalPreviewUrl);
+          } catch {
+            // ignore
+          }
+        }
+      }
+      return prev.filter((item) => item.id !== id);
     });
 
-    setActiveItemId((curr) => {
-      if (curr === id) {
-        return null;
-      }
-      return curr;
-    });
+    setActiveItemId((curr) => (curr === id ? null : curr));
   }, []);
 
   const clearQueue = useCallback(() => {
@@ -154,6 +165,77 @@ export function useImageQueue(): UseImageQueueReturn {
     );
   }, []);
 
+  const updateEditedItem = useCallback(
+    (
+      id: string,
+      editedFile: File,
+      editedPreviewUrl: string,
+      config: ImageEditorConfig
+    ) => {
+      urlsRef.current.add(editedPreviewUrl);
+
+      setQueue((prev) =>
+        prev.map((item) => {
+          if (item.id !== id) return item;
+
+          // Revoke old edited preview URL if it's not the original
+          if (
+            item.previewUrl &&
+            item.previewUrl !== item.originalPreviewUrl &&
+            item.previewUrl !== editedPreviewUrl
+          ) {
+            try {
+              URL.revokeObjectURL(item.previewUrl);
+              urlsRef.current.delete(item.previewUrl);
+            } catch {
+              // ignore
+            }
+          }
+
+          return {
+            ...item,
+            file: editedFile,
+            previewUrl: editedPreviewUrl,
+            fileSize: editedFile.size,
+            editorConfig: config,
+            isEdited: true,
+            status: 'queued', // Ready to re-process with new transformations
+          };
+        })
+      );
+    },
+    []
+  );
+
+  const resetItemToOriginal = useCallback((id: string) => {
+    setQueue((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+
+        if (item.previewUrl && item.previewUrl !== item.originalPreviewUrl) {
+          try {
+            URL.revokeObjectURL(item.previewUrl);
+            urlsRef.current.delete(item.previewUrl);
+          } catch {
+            // ignore
+          }
+        }
+
+        const restoredFile = item.originalFile || item.file;
+        const restoredUrl = item.originalPreviewUrl || item.previewUrl;
+
+        return {
+          ...item,
+          file: restoredFile,
+          previewUrl: restoredUrl,
+          fileSize: restoredFile.size,
+          editorConfig: DEFAULT_EDITOR_CONFIG,
+          isEdited: false,
+        };
+      })
+    );
+  }, []);
+
   const updateItemText = useCallback((id: string, newText: string) => {
     const stats = calculateTextStats(newText);
     setQueue((prev) =>
@@ -171,7 +253,6 @@ export function useImageQueue(): UseImageQueueReturn {
     );
   }, []);
 
-  // Update activeItemId if current active was deleted and queue has items
   useEffect(() => {
     if (activeItemId === null && queue.length > 0) {
       setActiveItemId(queue[0].id);
@@ -193,6 +274,8 @@ export function useImageQueue(): UseImageQueueReturn {
     clearQueue,
     updateItem,
     updateItemText,
+    updateEditedItem,
+    resetItemToOriginal,
     completedItems,
     failedItems,
     queuedItems,

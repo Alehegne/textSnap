@@ -6,12 +6,13 @@ import { BatchProgress } from './components/BatchProgress';
 import { IndividualResult } from './components/IndividualResult';
 import { CombinedResults } from './components/CombinedResults';
 import { HistoryModal } from './components/History';
+import { ImageEditorModal } from './components/ImageEditorModal';
 import { Toast } from './components/Toast';
 import { useImageQueue } from './hooks/useImageQueue';
 import { useBatchOCR } from './hooks/useBatchOCR';
 import { useClipboardImage } from './hooks/useClipboardImage';
 import { useHistory } from './hooks/useHistory';
-import { ToastMessage, QueueItem, HistoryItem } from './types';
+import { ToastMessage, QueueItem, HistoryItem, ImageEditorConfig } from './types';
 import {
   Zap,
   Lock,
@@ -23,6 +24,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  Crop,
 } from 'lucide-react';
 import { preprocessImage, DEFAULT_PREPROCESSING } from './services/imageService';
 import { ImagePreprocessingOptions } from './types';
@@ -38,6 +40,7 @@ export const App: React.FC = () => {
     clearQueue,
     updateItem,
     updateItemText,
+    updateEditedItem,
     completedItems,
     failedItems,
     queuedItems,
@@ -48,6 +51,7 @@ export const App: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [viewTab, setViewTab] = useState<'individual' | 'combined'>('individual');
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [editingItem, setEditingItem] = useState<QueueItem | null>(null);
 
   // Preprocessing state for active image
   const [preprocessing, setPreprocessing] =
@@ -129,6 +133,22 @@ export const App: React.FC = () => {
     }
 
     await processSingleItem(id);
+  };
+
+  // Handle saving edits from ImageEditorModal
+  const handleApplyEditorChanges = async (
+    targetItem: QueueItem,
+    editedFile: File,
+    editedPreviewUrl: string,
+    config: ImageEditorConfig,
+    shouldExtract: boolean
+  ) => {
+    updateEditedItem(targetItem.id, editedFile, editedPreviewUrl, config);
+    showToast('success', `Applied transformations to "${targetItem.filename}".`);
+
+    if (shouldExtract) {
+      await processSingleItem(targetItem.id);
+    }
   };
 
   // Restore history record into queue
@@ -276,6 +296,7 @@ export const App: React.FC = () => {
                     onSelect={() => setActiveItemId(item.id)}
                     onRemove={() => removeQueueItem(item.id)}
                     onRetry={() => handleProcessSingleItem(item.id)}
+                    onEdit={() => setEditingItem(item)}
                     disabled={isProcessingBatch}
                   />
                 ))}
@@ -306,6 +327,17 @@ export const App: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingItem(activeItem)}
+                    disabled={isProcessingBatch}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    title="Open Image Editor to crop, rotate, or adjust filters"
+                  >
+                    <Crop className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    <span>Edit Image</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setShowFilters(!showFilters)}
@@ -430,6 +462,7 @@ export const App: React.FC = () => {
                     item={activeItem}
                     onTextChange={(newText) => updateItemText(activeItem.id, newText)}
                     onRetry={() => handleProcessSingleItem(activeItem.id)}
+                    onEdit={() => setEditingItem(activeItem)}
                     onSelectPrevious={handleSelectPrevious}
                     onSelectNext={handleSelectNext}
                     hasPrevious={completedIndex > 0}
@@ -445,6 +478,7 @@ export const App: React.FC = () => {
                       item={completedItems[0]}
                       onTextChange={(newText) => updateItemText(completedItems[0].id, newText)}
                       onRetry={() => handleProcessSingleItem(completedItems[0].id)}
+                      onEdit={() => setEditingItem(completedItems[0])}
                       currentIndex={1}
                       totalCompleted={completedItems.length}
                       isProcessing={isProcessingBatch}
@@ -511,6 +545,14 @@ export const App: React.FC = () => {
         onSelectHistoryItem={handleSelectHistoryItem}
         onDeleteHistoryItem={removeHistoryItem}
         onClearAll={clearAllHistory}
+      />
+
+      {/* Image Editor Modal */}
+      <ImageEditorModal
+        item={editingItem}
+        isOpen={!!editingItem}
+        onClose={() => setEditingItem(null)}
+        onApplyChanges={handleApplyEditorChanges}
       />
 
       {/* Toast Notifications */}

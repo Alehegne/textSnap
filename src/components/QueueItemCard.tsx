@@ -8,6 +8,7 @@ import {
   Loader2,
   X,
   RotateCcw,
+  Crop,
 } from 'lucide-react';
 
 interface QueueItemCardProps {
@@ -16,6 +17,7 @@ interface QueueItemCardProps {
   onSelect: () => void;
   onRemove: () => void;
   onRetry: () => void;
+  onEdit?: () => void;
   disabled?: boolean;
 }
 
@@ -25,6 +27,7 @@ export const QueueItemCard: React.FC<QueueItemCardProps> = ({
   onSelect,
   onRemove,
   onRetry,
+  onEdit,
   disabled = false,
 }) => {
   const isQueued = item.status === 'queued';
@@ -42,12 +45,20 @@ export const QueueItemCard: React.FC<QueueItemCardProps> = ({
       }`}
     >
       {/* Thumbnail */}
-      <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700/60 flex items-center justify-center">
+      <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 border border-slate-200 dark:border-slate-700/60 flex items-center justify-center relative">
         <img
           src={item.previewUrl}
           alt={item.filename}
           className="w-full h-full object-cover select-none"
         />
+        {item.isEdited && (
+          <span
+            className="absolute bottom-0 right-0 bg-brand-600 text-[9px] font-bold text-white px-1 rounded-tl"
+            title="Image edited (crop, rotate, or filters applied)"
+          >
+            EDIT
+          </span>
+        )}
       </div>
 
       {/* Details */}
@@ -124,6 +135,22 @@ export const QueueItemCard: React.FC<QueueItemCardProps> = ({
 
       {/* Action Controls */}
       <div className="flex items-center gap-1">
+        {onEdit && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            disabled={disabled || isProcessing}
+            className="p-1.5 rounded-md text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors"
+            title="Edit image (crop, rotate, filters)"
+            aria-label={`Edit ${item.filename}`}
+          >
+            <Crop className="w-3.5 h-3.5" />
+          </button>
+        )}
+
         {isFailed && (
           <button
             type="button"
