@@ -29,6 +29,26 @@ export interface UploadedImage {
   height?: number;
 }
 
+export type QueueItemStatus = 'queued' | 'processing' | 'completed' | 'failed';
+
+export interface QueueItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+  filename: string;
+  fileSize: number;
+  status: QueueItemStatus;
+  progress: number; // 0 to 1
+  progressStatus?: string;
+  extractedText: string;
+  confidence: number;
+  wordCount: number;
+  charCount: number;
+  linesCount: number;
+  error: string | null;
+  timestamp: number;
+}
+
 export interface HistoryItem {
   id: string;
   timestamp: number;
@@ -51,3 +71,9 @@ export interface ImagePreprocessingOptions {
 }
 
 export type Theme = 'light' | 'dark' | 'system';
+
+export interface ToastMessage {
+  id: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+}
